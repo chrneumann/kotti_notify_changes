@@ -1,0 +1,87 @@
+Kotti_notify_changes browser tests
+==================================
+
+Setup
+-----
+
+   >>> import pytest
+   >>> from kotti import testing, DBSession
+   >>> from kotti.resources import Node, Document
+
+Get a handle for some useful objects:
+
+   >>> tools = testing.setUpFunctional()
+   >>> browser = tools['Browser']()
+   >>> ctrl = browser.getControl
+   >>> root = DBSession.query(Node).get(1)
+   >>> mailer = testing.registerDummyMailer()
+
+Open the frontpage:
+
+   >>> browser.open(testing.BASE_URL)
+
+Set a mail address for the admin:
+
+    >>> from kotti.security import get_principals
+    >>> admin = get_principals()['admin']
+    >>> admin.email = "admin@example.com"
+    >>> admin.title = "The Punk"
+
+
+Login
+-----
+
+  >>> browser.open(testing.BASE_URL + '/login')
+  >>> ctrl("Username or email").value = "admin"
+  >>> ctrl("Password").value = "secret"
+  >>> ctrl(name="submit").click()
+  >>> "Welcome, The Punk" in browser.contents
+  True
+ 
+  
+Add a document
+--------------
+
+  >>> browser.open(testing.BASE_URL + '/add_document')
+  >>> ctrl("Title").value = "Child One"
+  >>> ctrl("save").click()
+  >>> mail = mailer.outbox.pop()
+  >>> print mail.recipients
+  [u'"The Punk" <admin@example.com"']
+  >>> mail.subject
+  "The Punk added 'Child one'"
+  >>> 'Child one' in mail.body
+  True
+  >>> testing.BASE_URL + '/child-one' in mail.body
+  True
+
+
+Edit the document
+-----------------
+
+  >>> browser.getLink("Edit").click()
+  >>> ctrl("Title").value = "First Child"
+  >>> ctrl("save").click()
+  >>> mail = mailer.outbox.pop()
+  >>> print mail.recipients
+  [u'"The Punk" <admin@example.com"']
+  >>> mail.subject
+  "The Punk edited 'First Child'"
+  >>> 'First child' in mail.body
+  True
+  >>> testing.BASE_URL + '/first-child' in mail.body
+  True
+
+
+Delete a document
+-----------------
+
+  >>> browser.getLink('Delete').click()
+  >>> ctrl("delete").click()
+  >>> mail = mailer.outbox.pop()
+  >>> print mail.recipients
+  [u'"The Punk" <admin@example.com"']
+  >>> mail.subject
+  "The Punk deleted 'First Child'"
+  >>> 'First child' in mail.body
+  True
